@@ -49,6 +49,8 @@ def findBackUps(current_dir):
                    else:
                        # no non-ascii chars found - continue reading
                        pass
+    else:
+        recovered = False
     return recovered
  
 
@@ -180,3 +182,7 @@ def add(a,b):
 
 recovered = findBackUps(current_dir)
 initDatabase(recovered)
+# example functions - all will report to log
+LEMON = addObject("LEMON","round yellow citrus friut")
+PEAR = addObject("PEAR","strange squishy friut")
+deleteObject("PEAR")
