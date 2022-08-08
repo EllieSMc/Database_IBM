@@ -1,0 +1,2 @@
+## Ignore all the databases when committing to git - we don't want to leak private data
+*.txt
