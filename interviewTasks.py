@@ -6,15 +6,17 @@ Created on Fri Jul 29 14:49:28 2022
 """
 
 import shutil
-import datetime as dt
-from datetime import date
 import os
+import datetime as dt
+import sys
+
+from datetime import date
 from os.path import exists
 
-current_dir = os.getcwd()
-
+current_dir   = os.getcwd()
 database_name = "database_IBM.txt"
-logfile_name = "logfile_IBM.txt"
+logfile_name  = "logfile_IBM.txt"
+tempfile_name = "temp_file.txt"
 
 # initialise object dictionary ????
 object_dict = {}
@@ -28,60 +30,65 @@ def getDate():
 def getTime():       
     time_now = dt.datetime.today().strftime('%H:%M:%S')
     return time_now
-    
-# WRITE TESTS FOR THIS FUNCTION WITH DIFFERENT INITIAL FOLDERS # 
+
 def findBackUps(current_dir):
     # find current directory and form tmp file path
-    tmp_path = current_dir + "\\" + "tmp.txt"
+    recovered_file = current_dir + "/tmp.txt"
     # find if it exists
-    if exists(tmp_path) == True:
+    if exists(recovered_file):
     # if exists, check for non-ASCII characters (corruption)
-        recovered = tmp_path
-        with open(tmp_path,'rb') as check_file:
+        with open(recovered_file,'rb') as check_file:
             # while there are chars to read
             while True:
-               for line in check_file:
-                   try:
-                       line.decode("ascii")
-                   except UnicodeDecodeError:
-                       print("BAD LINE: " + str(line))
-                       recovered = False
-                   else:
-                       # no non-ascii chars found - continue reading
-                       pass
-    else:
-        recovered = False
-    return recovered
- 
+                for line in check_file:
+                    try:
+                        line.decode("ascii")
+                    except UnicodeDecodeError:
+                        print("BAD LINE: " + str(line))
+                        break
+                    except:
+                         print("UNKNOWN: " + str(line))
+                         break
+                    else:
+                        # no non-ascii chars found - continue reading
+                        pass
+        return recovered_file
+    # Base case - if no file to recover OR failed recovery, just return false
+    return
+
+def yesOrNoInput(stringRequest):
+    while True:
+        response = input(stringRequest).lower()
+        if 'y' in response:
+            return True
+        elif 'n' in response:
+            return False
+
 
 def initDatabase(recovered):
-    # if no back-ups found start from scratch
-    if recovered == False:
-        print("No file recovered - generating new storage file and log file")
-        # create empty text file using with open
-        with open(database_name, 'w') as my_new_text_file:
-            pass
-        with open(logfile_name, 'w') as my_new_logfile:
-            pass
-        updateLog("DATABASE", getTime(), getDate(), "create")
-            
-    else:
-        print("Proceed with recovered database? (Y/N)")
-        response = input()
-        # act on response
-        if response == "Y":
+    # if `recovered` exists, database was recovered
+    if recovered:
+        if yesOrNoInput("Proceed with recovered database? (Y/N)\n"):
             # continue appending database and logfile
             print("Proceeding with recovered database") # what if no log file found?
             # add message to logfile saying when file was recovered
             updateLog(None,getTime(),getDate(),"recover")
-        elif response == "N":
-            # delete old database amd logfile - stop hard coding these names and make them variables
-            os.remove(current_dir+"\\\\"+str(database_name))
-            os.remove(current_dir+"\\\\"+str(logfile_name))
-            os.remove(current_dir+"\\\\tmp.txt")
-            
         else:
-            print("Please enter a valid Y/N response")
+            # delete old database and logfile - stop hard coding these names and make them variables
+            os.remove(current_dir + "/" + str(database_name))
+            os.remove(current_dir + "/" + str(logfile_name))
+            os.remove(current_dir + "/tmp.txt")
+    # if no back-ups found start from scratch      
+    else:
+        # create empty text file using with open
+        try:
+            open(database_name, 'w')
+            open(logfile_name, 'a+')
+            updateLog("DATABASE", getTime(), getDate(), "create")
+        except:
+            print("ERROR CREATING DATABASE")
+            sys.exit(1)
+
             
 def updateLog(obj_name,log_time,log_date,action):
     # append latest action to logfile
@@ -105,13 +112,13 @@ def updateLog(obj_name,log_time,log_date,action):
         l.write("\n")
         
     else:
-        print("Invalid action")
+        print("INVALID DATABASE OPERATION")
+        sys.exit(1)
     
     print("Reported change to logfile")
 
 
 class Fruit:
-
     def __new__(cls, name):
         print(f"Creating a new {cls.__name__} object")
         obj = object.__new__(cls)
@@ -126,7 +133,12 @@ class Fruit:
     
 def addObject(obj_name,atr):
     # first need to create a temp file to avoid data loss
-    temp_file = shutil.copy("database_IBM.txt",current_dir+"\\\\temp_file.txt")
+    try:
+        temp_file = shutil.copy(database_name,tempfile_name)
+    except:
+        print("FAILED TO COPY DATABASE FILE - do you have permission?")
+        sys.exit(1)
+
     # need to check if a string - or make it one!
     obj = Fruit(atr)
     # add object to dict
@@ -136,7 +148,7 @@ def addObject(obj_name,atr):
         data_string = ["%s" %(obj_name) + " with tag %s" %(obj) + " colour.%s = %s" % (atr) for atr in obj.__dict__.items()]
         f.write("".join(data_string))
         f.write("\n")
-    print("Added " + str(obj) + " object to .txt file.")
+    print("Added " + obj_name + " object to database.")
     
     # update log
     updateLog(obj_name,getTime(),getDate(),"add")
@@ -149,7 +161,11 @@ def addObject(obj_name,atr):
         
 def deleteObject(obj_to_delete):
     # first need to create a temp file to avoid data loss
-    temp_file = shutil.copy(database_name,current_dir+"\\\\temp_file.txt")
+    try:
+        temp_file = shutil.copy(database_name,tempfile_name)
+    except:
+        print("FAILED TO COPY DATABASE FILE - do you have permission?")
+        sys.exit(1)
     # need to delete this object from RAM in here and the current file. 
     #del object_dict[obj_to_delete]
     # need to find and delete object in file first
@@ -164,9 +180,9 @@ def deleteObject(obj_to_delete):
                 updateLog(obj_name,getTime(),getDate(),"delete")
      
     # action performed successfully - now delete old database 
-    os.remove(current_dir+"\\\\"+str(database_name))
+    os.remove(database_name)
     # and rename new database
-    os.rename("new_database_IBM.txt",str(database_name))
+    os.rename("new_database_IBM.txt",database_name)
     # now deletion has been successfully performed - delete tmp_file
     os.remove(temp_file)
     print("Database safely updated")
@@ -177,12 +193,16 @@ def add(a,b):
     return a+b
 
 
+if exists(database_name):
+    if yesOrNoInput("Database discovered, would you like to overwrite it? (Y/N)\n"):
+        if yesOrNoInput("Are you sure? Database will be overwritten (Y/N)\n"):
+            print("Database overwritten")
+            initDatabase(findBackUps(current_dir))
+else:
+    initDatabase(findBackUps(current_dir))
 
 
-
-recovered = findBackUps(current_dir)
-initDatabase(recovered)
 # example functions - all will report to log
-LEMON = addObject("LEMON","round yellow citrus friut")
-PEAR = addObject("PEAR","strange squishy friut")
+LEMON = addObject("LEMON","round yellow citrus fruit")
+PEAR = addObject("PEAR","strange squishy fruit")
 deleteObject("PEAR")
